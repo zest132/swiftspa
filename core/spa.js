@@ -9,6 +9,7 @@
  */
 import { fetchText } from './dom.js';
 import { applyConditionalRendering } from './conditional.js';
+import { waitForImages } from './utils.js';
 
 
 function defaultResolvePageUrl(path) {
@@ -71,6 +72,11 @@ export async function navigate(path, preloadedHtml = null) {
     finally {
         // SPA 네비게이션 이벤트 발생
         window.dispatchEvent(new CustomEvent('spa:navigate', { detail: { path } }));
+        // 이미지 로드 완료 훅
+        waitForImages(document).then(() => {
+            window.dispatchEvent(new CustomEvent('spa:afterRender', { detail: { path } }));
+        });
+
         // 조건부 렌더링 적용
         applyConditionalRendering();
     }
