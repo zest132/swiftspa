@@ -46,24 +46,37 @@ function resolvePageUrl(path) {
  */
 export async function navigate(path, preloadedHtml = null) {
     try {
-
-        const tplUrl = resolvePageUrl(path);
+        const tplUrl = resolvePageUrl(path);                // ex: /pages/public/landing/index.html
         const html = preloadedHtml ?? await fetchText(tplUrl);
 
         const main = document.querySelector('#app-main');
         main.innerHTML = html;
 
+        // -----------------------------
+        // ① index.css 자동 로드
+        // -----------------------------
+        const cssPath = tplUrl.replace(/index\.html$/, "style.css");
+        if (!document.querySelector(`link[data-page-css="${cssPath}"]`)) {
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = cssPath;
+            link.setAttribute("data-page-css", cssPath);
+            document.head.appendChild(link);
+        }
 
+        // -----------------------------
+        // ② index.js 자동 로드 → init() 자동 실행
+        // -----------------------------
+        const jsPath = tplUrl.replace(/index\.html$/, "index.js");
 
-        // data-init 읽어서 실행 (페이지 초기화 모듈)
-            const initAttr = main.querySelector('[data-init]')?.dataset.init;
-        if (initAttr) {
-                const mod = await import(initAttr);
-                if (typeof mod.init === "function") {
-                      mod.init();
-                    }
-           }
-
+        try {
+            const mod = await import(jsPath);
+            if (typeof mod.init === "function") {
+                mod.init();
+            }
+        } catch (err) {
+            // ★ index.js가 없는 경우는 정상 → 조용히 패스
+        }
 
     } catch (e) {
         console.error('페이지 로드 실패:', e);
@@ -72,9 +85,12 @@ export async function navigate(path, preloadedHtml = null) {
     finally {
         // SPA 네비게이션 이벤트 발생
         window.dispatchEvent(new CustomEvent('spa:navigate', { detail: { path } }));
-        // 이미지 로드 완료 훅
+
+        // 이미지 로드 완료 후(afterRender) 이벤트
         waitForImages(document).then(() => {
-            window.dispatchEvent(new CustomEvent('spa:afterRender', { detail: { path } }));
+            window.dispatchEvent(
+                new CustomEvent('spa:afterRender', { detail: { path } })
+            );
         });
 
         // 조건부 렌더링 적용
