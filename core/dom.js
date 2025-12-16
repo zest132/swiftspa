@@ -3,12 +3,39 @@
  * @author 박주병
  */
 export async function fetchText(url, baseUrl) {
-    // baseUrl가 주어지면 이를 기준으로 상대경로를 절대경로로 변환
-    const finalUrl = new URL(url, baseUrl ?? window.location.href).toString();
+    // baseUrl이 "/components/menu-mobile/" 같은 path일 경우,
+    // window.location.origin을 기준으로 절대 URL로 변환
+    const finalBase = baseUrl
+        ? new URL(baseUrl, window.location.origin).toString()
+        : window.location.href;
+
+    const finalUrl = new URL(url, finalBase).toString();
+
     const res = await fetch(finalUrl, { credentials: 'same-origin' });
     if (!res.ok) throw new Error(`Failed to load: ${finalUrl} (${res.status})`);
     return res.text();
 }
+function resolveRelativePaths(html, baseUrl) {
+    // baseUrl → 절대경로로 변환 (도메인 포함)
+    const absoluteBase = new URL(baseUrl, window.location.origin).href;
+
+    // 마지막 파일명 제거 → 디렉토리 경로만 남김
+    const baseDir = absoluteBase.replace(/\/[^/]*$/, "/");
+
+    return html.replace(/(src|href)=["'](.+?)["']/g, (match, attr, url) => {
+
+        // 절대경로는 그대로
+        if (url.startsWith("http") || url.startsWith("/") || url.startsWith("#")) {
+            return match;
+        }
+
+        // 상대경로 → 절대경로 변환
+        const absoluteUrl = new URL(url, baseDir).href;
+
+        return `${attr}="${absoluteUrl}"`;
+    });
+}
+
 
 /**
  * Shadow DOM에 template(html)과 style(css)들을 로드하여 주입한다.
@@ -30,6 +57,8 @@ export async function loadTemplateToShadow(el, templateUrl, styleUrl, baseUrl, o
     if (!window.__commonCssPromise) {
         window.__commonCssPromise = Promise.all([
             fetchText("../styles/reset.css",import.meta.url),
+            fetchText("/styles/globals.css"),
+            fetchText("/styles/utility-spacing.css"),
             // fetchText("/styles/form.css"),
             // fetchText("/styles/checkbox.css"),
             // fetchText("/styles/radio.css"),
@@ -39,7 +68,7 @@ export async function loadTemplateToShadow(el, templateUrl, styleUrl, baseUrl, o
     }
 
     const cssList = Array.isArray(styleUrl) ? styleUrl : (styleUrl ? [styleUrl] : []);
-    const [html, ...cssFilesAndGlobal] = await Promise.all([
+    let [html, ...cssFilesAndGlobal] = await Promise.all([
         fetchText(templateUrl, baseUrl),
         ...cssList.map(url => fetchText(url, baseUrl)),
         window.__commonCssPromise
@@ -54,6 +83,9 @@ export async function loadTemplateToShadow(el, templateUrl, styleUrl, baseUrl, o
 
     const wrap = document.createElement("template");
 
+
+    //  여기서 html 내부의 src/href 상대경로를 baseUrl 기준으로 변환
+    html = resolveRelativePaths(html, baseUrl);
 
     wrap.innerHTML = `
         <style>${globalCss}</style>

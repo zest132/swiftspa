@@ -2,7 +2,7 @@
 
 import { configureSpa, startSpa , injectGlobalStyles } from './core/spa.js';
 
-
+import './core/base-component.js';
 /**
  * SwiftSPA를 초기화하는 엔트리 함수
  *

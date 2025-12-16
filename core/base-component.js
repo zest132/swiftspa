@@ -1,5 +1,8 @@
 import { loadTemplateToShadow } from './dom.js';
 
+
+
+
 /**
  * SwiftSPA BaseComponent
  * - 모든 Web Component의 공통 기반
@@ -25,12 +28,18 @@ export class BaseComponent extends HTMLElement {
     constructor(options = {}) {
         super();
 
+        const tagName = this.tagName.toLowerCase();
+        const autoBaseDir = this.constructor.__swiftspa_baseDir
+            ?? `/components/${tagName}/`;
+
+
+
         // 옵션 병합
         this.__options = Object.assign(
             {
                 template: "./template.html",
                 style: "./style.css",
-                shadow: "open"   // shadow: false 로 설정하면 Shadow DOM 미사용
+                shadow: "open",   // shadow: false 로 설정하면 Shadow DOM 미사용
             },
             options
         );
@@ -45,8 +54,9 @@ export class BaseComponent extends HTMLElement {
         const styleUrl = this.__options.style;
 
         // import.meta.url 자동 전달
-        loadTemplateToShadow(this, templateUrl, styleUrl, import.meta.url, () => {
-            this.onReady?.();
+        loadTemplateToShadow(this, templateUrl, styleUrl,    autoBaseDir, (shadow) => {
+
+            this.onReady?.(shadow);
         });
     }
 
@@ -55,7 +65,7 @@ export class BaseComponent extends HTMLElement {
      * - 템플릿/스타일이 로드되고 Shadow DOM이 생성된 뒤 실행
      * - 자식 클래스에서 오버라이드 가능
      */
-    onReady() {
+    onReady(shadow) {
         // 사용자 컴포넌트에서 override 가능
         // console.log(`${this.tagName} ready`);
     }

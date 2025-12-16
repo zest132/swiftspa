@@ -38,6 +38,73 @@ function resolvePageUrl(path) {
     return defaultResolvePageUrl(path);
 }
 
+/**
+ * CamelCase 나 대문자가 들어간 태그는 WebComponent 규칙상 소문자-케밥으로 강제됨
+ * ex) <MobileMenu> → mobile-menu
+ */
+function normalizeTagName(tag) {
+    return tag.trim().toLowerCase();
+}
+
+
+
+/**
+ * 페이지 내 등장한 custom elements를 기준으로 필요한 컴포넌트만 lazy-load
+ */
+async function loadMissingComponents(root = document) {
+    const allTags = new Set();
+
+    // HTML 요소 스캔
+    root.querySelectorAll('*').forEach(el => {
+        const tag = el.tagName.toLowerCase();
+        if (tag.includes('-')) {
+            allTags.add(tag);
+        }
+    });
+
+    // ShadowRoot 내부도 포함
+    root.querySelectorAll('*').forEach(el => {
+        if (el.shadowRoot) {
+            el.shadowRoot.querySelectorAll('*').forEach(shEl => {
+                const tag = shEl.tagName.toLowerCase();
+                if (tag.includes('-')) {
+                    allTags.add(tag);
+                }
+            });
+        }
+    });
+
+    for (const tagName of allTags) {
+        if (customElements.get(tagName)) continue;
+
+        // /components/mobile-menu/mobile-menu.js 규칙
+        const baseDir = `/components/${tagName}/`;
+        const jsPath = `${baseDir}index.js`;
+
+        try {
+            const module = await import(jsPath);
+            const Ctor = module.default;
+
+            if (typeof Ctor !== 'function') {
+                console.warn(`[SwiftSPA] ${jsPath} 에서 default export class 를 찾을 수 없습니다.`);
+                continue;
+            }
+
+            // 컴포넌트 등록
+            customElements.define(tagName, Ctor);
+
+            // BaseComponent에게 baseDir 전달 (자동 템플릿 로딩용)
+            Ctor.__swiftspa_baseDir = baseDir;
+
+        } catch (err) {
+            console.warn(`[SwiftSPA] 컴포넌트 로딩 실패: ${jsPath}`, err);
+        }
+    }
+}
+
+
+
+
 
 /**
  * path에 맞는 템플릿을 가져와서 #app-main 에 삽입
@@ -95,6 +162,8 @@ export async function navigate(path, preloadedHtml = null) {
 
         // 조건부 렌더링 적용
         applyConditionalRendering();
+        //페이지 내 custom elements 자동 스캔 + LazyLoading
+        await loadMissingComponents(document);
     }
 }
 
