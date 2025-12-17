@@ -15,6 +15,19 @@ export async function fetchText(url, baseUrl) {
     if (!res.ok) throw new Error(`Failed to load: ${finalUrl} (${res.status})`);
     return res.text();
 }
+
+/**
+ * layout.html에 선언된 Shadow 전달용 CSS 링크 수집
+ * <link rel="stylesheet" data-shadow>
+ */
+function collectLayoutShadowCssUrls() {
+    return Array.from(
+        document.querySelectorAll('link[rel="stylesheet"][data-shadow]')
+    ).map(link => link.href);
+}
+
+
+
 function resolveRelativePaths(html, baseUrl) {
     // baseUrl → 절대경로로 변환 (도메인 포함)
     const absoluteBase = new URL(baseUrl, window.location.origin).href;
@@ -50,52 +63,77 @@ function resolveRelativePaths(html, baseUrl) {
  * @returns {Promise<ShadowRoot>}
  * @author 박주병
  */
-export async function loadTemplateToShadow(el, templateUrl, styleUrl, baseUrl, onReady) {
+export async function loadTemplateToShadow(
+    el,
+    templateUrl,
+    styleUrl,
+    baseUrl,
+    onReady,
+    {
+        useLayoutStyles = true
+    } = {}
+) {
     const shadow = el.shadowRoot ?? el.attachShadow({ mode: "open" });
 
-    // 전역 CSS (최초 1회만 fetch 후 캐시)
-    if (!window.__commonCssPromise) {
-        window.__commonCssPromise = Promise.all([
-            fetchText("../styles/reset.css",import.meta.url),
-            fetchText("/styles/globals.css"),
-            fetchText("/styles/utility-spacing.css"),
-            // fetchText("/styles/form.css"),
-            // fetchText("/styles/checkbox.css"),
-            // fetchText("/styles/radio.css"),
-            // fetchText("/styles/theme.css"),
-            // fetchText("/styles/animation.css"),
-        ]);
+
+    // 1. layout.html에서 data-shadow CSS 수집
+    const layoutCssUrls = useLayoutStyles
+        ? collectLayoutShadowCssUrls()
+        : [];
+
+    console.log(layoutCssUrls);
+    // 2. 컴포넌트 전용 CSS
+    const componentCssUrls = Array.isArray(styleUrl)
+        ? styleUrl
+        : (styleUrl ? [styleUrl] : []);
+
+    // 3. CSS 캐시 초기화
+    if (!window.__shadowCssCache) {
+        window.__shadowCssCache = {};
     }
 
-    const cssList = Array.isArray(styleUrl) ? styleUrl : (styleUrl ? [styleUrl] : []);
-    let [html, ...cssFilesAndGlobal] = await Promise.all([
-        fetchText(templateUrl, baseUrl),
-        ...cssList.map(url => fetchText(url, baseUrl)),
-        window.__commonCssPromise
+    // 4. CSS fetch (layout / component 분리 처리)
+    const cssTexts = await Promise.all([
+        // ─────────────────────────────
+        // layout CSS (절대경로)
+        // ─────────────────────────────
+        ...layoutCssUrls.map(url => {
+            if (!window.__shadowCssCache[url]) {
+                window.__shadowCssCache[url] = fetchText(url);
+            }
+            return window.__shadowCssCache[url];
+        }),
+
+        // ─────────────────────────────
+        // component CSS (상대경로 + baseDir 기준)
+        // ─────────────────────────────
+        ...componentCssUrls.map(url => {
+            // baseUrl + url 조합으로 캐시 키 생성
+            const cacheKey = `${baseUrl}::${url}`;
+
+            if (!window.__shadowCssCache[cacheKey]) {
+                window.__shadowCssCache[cacheKey] = fetchText(url, baseUrl);
+            }
+            return window.__shadowCssCache[cacheKey];
+        })
     ]);
 
-    // 마지막 요소가 전역 CSS 배열임
-    const commonCssArr = cssFilesAndGlobal.pop();
-    const globalCss = Array.isArray(commonCssArr) ? commonCssArr.join("\n") : commonCssArr;
-    const cssListText = cssFilesAndGlobal.join("\n");
+    // 5. HTML fetch
+    let html = await fetchText(templateUrl, baseUrl);
+    html = resolveRelativePaths(html, baseUrl);
 
+    // 6. Shadow 초기화
     while (shadow.firstChild) shadow.removeChild(shadow.firstChild);
 
     const wrap = document.createElement("template");
-
-
-    //  여기서 html 내부의 src/href 상대경로를 baseUrl 기준으로 변환
-    html = resolveRelativePaths(html, baseUrl);
-
     wrap.innerHTML = `
-        <style>${globalCss}</style>
-        ${cssListText ? `<style>${cssListText}</style>` : ""}
+        <style>${cssTexts.join("\n")}</style>
         ${html}
     `;
 
     shadow.appendChild(wrap.content.cloneNode(true));
-
     onReady?.(shadow);
+
     return shadow;
 }
 
