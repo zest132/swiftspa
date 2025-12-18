@@ -81,7 +81,6 @@ export async function loadTemplateToShadow(
         ? collectLayoutShadowCssUrls()
         : [];
 
-    console.log(layoutCssUrls);
     // 2. 컴포넌트 전용 CSS
     const componentCssUrls = Array.isArray(styleUrl)
         ? styleUrl
