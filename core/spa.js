@@ -10,7 +10,7 @@
 import { fetchText } from './dom.js';
 import { applyConditionalRendering } from './conditional.js';
 import { waitForImages } from './utils.js';
-
+import { ComponentRegistry } from './component-registry.js';
 
 function defaultResolvePageUrl(path) {
     return `/pages${path}/index.html`;
@@ -74,35 +74,42 @@ async function loadMissingComponents(root = document) {
         }
     });
 
-    for (const tagName of allTags) {
-        if (customElements.get(tagName)) continue;
-
-        // /components/mobile-menu/mobile-menu.js 규칙
-        const baseDir = `/components/${tagName}/`;
-        const jsPath = `${baseDir}index.js`;
-
-        try {
-            const module = await import(jsPath);
-            const Ctor = module.default;
-
-            if (typeof Ctor !== 'function') {
-                console.warn(`[SwiftSPA] ${jsPath} 에서 default export class 를 찾을 수 없습니다.`);
-                continue;
+        for (const tagName of allTags) {
+                ComponentRegistry.discover(tagName);
             }
-
-            // 컴포넌트 등록
-            customElements.define(tagName, Ctor);
-
-            // BaseComponent에게 baseDir 전달 (자동 템플릿 로딩용)
-            Ctor.__swiftspa_baseDir = baseDir;
-
-        } catch (err) {
-            console.warn(`[SwiftSPA] 컴포넌트 로딩 실패: ${jsPath}`, err);
-        }
-    }
 }
 
+function observeDynamicComponents() {
+    const observer = new MutationObserver((mutations) => {
 
+        for (const m of mutations) {
+            if (m.type !== 'childList') continue;
+
+            for (const node of m.addedNodes) {
+                if (!(node instanceof HTMLElement)) continue;
+
+                //  node 자체가 custom element인 경우
+                const tag = node.tagName.toLowerCase();
+                if (tag.includes('-')) {
+                    ComponentRegistry.discover(tag);
+                }
+
+                // node 내부에 custom element가 있는 경우
+                node.querySelectorAll?.('*').forEach(el => {
+                    const innerTag = el.tagName.toLowerCase();
+                    if (innerTag.includes('-')) {
+                        ComponentRegistry.discover(innerTag);
+                    }
+                });
+            }
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+}
 
 
 
@@ -264,4 +271,7 @@ export function startSpa() {
 
     // 3) 내부 링크 클릭 가로채기
     document.addEventListener('click', handleInternalLink);
+
+    // 동적 custom element 자동 로딩
+    observeDynamicComponents();
 }

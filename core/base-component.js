@@ -56,7 +56,28 @@ export class BaseComponent extends HTMLElement {
         // import.meta.url 자동 전달
         loadTemplateToShadow(this, templateUrl, styleUrl,    autoBaseDir, (shadow) => {
 
+            // refs 자동 수집
+            this.collectRefs();
             this.onReady?.(shadow);
+        });
+    }
+
+    /**
+     * Shadow DOM 내 data-ref 자동 수집
+     * this.refs.{name} 으로 접근 가능
+     */
+    collectRefs() {
+        this.refs = {};
+
+        if (!this.shadowRoot) return;
+
+        this.shadowRoot.querySelectorAll('[data-ref]').forEach(el => {
+            const key = el.dataset.ref;
+
+            // 중복 ref 방지 (첫 선언 우선)
+            if (!this.refs[key]) {
+                this.refs[key] = el;
+            }
         });
     }
 
