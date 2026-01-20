@@ -227,8 +227,10 @@ async function handleInternalLink(e) {
     // ③ 일반 경로는 기본 SPA 네비게이션
     // -------------------------------
     e.preventDefault();
+    const url = new URL(href, location.origin);
     history.pushState({}, '', href);
-    navigate(href);
+
+    navigate(url.pathname);
 }
 
 
