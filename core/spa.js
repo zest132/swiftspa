@@ -11,6 +11,25 @@ import { fetchText } from './dom.js';
 import { applyConditionalRendering } from './conditional.js';
 import { waitForImages } from './utils.js';
 import { ComponentRegistry } from './component-registry.js';
+import { PAGE_META } from '/pages/meta.js';
+
+
+
+
+
+function applyMeta(path) {
+    const meta = PAGE_META[path];
+    if (meta?.title) {
+        console.log(`[SPA] ${path} title: ${meta.title}`);
+        console.log(document.title);
+        document.title = meta.title;
+        console.log(document.title);
+
+    }
+}
+
+
+
 
 function defaultResolvePageUrl(path) {
     return `/pages${path}/index.html`;
@@ -125,6 +144,9 @@ export async function navigate(path, preloadedHtml = null) {
 
         const main = document.querySelector('#app-main');
         main.innerHTML = html;
+
+        applyMeta(path);
+
 
         // -----------------------------
         // ① index.css 자동 로드
