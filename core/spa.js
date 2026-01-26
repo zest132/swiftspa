@@ -12,19 +12,14 @@ import { applyConditionalRendering } from './conditional.js';
 import { waitForImages } from './utils.js';
 import { ComponentRegistry } from './component-registry.js';
 import { PAGE_META } from '/pages/meta.js';
-
-
+import { handleBack } from './overlay-coordinator.js';
 
 
 
 function applyMeta(path) {
     const meta = PAGE_META[path];
     if (meta?.title) {
-        console.log(`[SPA] ${path} title: ${meta.title}`);
-        console.log(document.title);
         document.title = meta.title;
-        console.log(document.title);
-
     }
 }
 
@@ -287,11 +282,20 @@ export function injectGlobalStyles() {
 export function startSpa() {
 
     console.log("startSpa() called.");
+
+    //현재 페이지를 히스토리 기준점으로 고정
+    history.replaceState({ page: true }, '', location.pathname + location.search);
+
     // 1) 최초 진입 페이지 로드
     navigate(location.pathname);
 
     // 2) 뒤로가기/앞으로가기 이벤트
-    window.addEventListener('popstate', () => navigate(location.pathname));
+    window.addEventListener('popstate', () => {
+       // page 네이게이션 대상이 아니면 람다로 받은 함수 실행(모달,바덤시트 등등)
+       if (handleBack()) return;
+
+        navigate(location.pathname);
+    });
 
     // 3) 내부 링크 클릭 가로채기
     document.addEventListener('click', handleInternalLink);
