@@ -166,7 +166,7 @@ export async function navigate(path, preloadedHtml = null) {
                 mod.init();
             }
         } catch (err) {
-            // ★ index.js가 없는 경우는 정상 → 조용히 패스
+            // index.js가 없는 경우는 정상 → 조용히 패스
         }
 
     } catch (e) {
@@ -251,15 +251,11 @@ async function handleInternalLink(e) {
 }
 
 
-
-
-
-
-
 export function injectGlobalStyles() {
 
     const globalStyles = [
         '/swiftspa/styles/reset.css',
+        '/swiftspa/styles/overlay.css',
     ];
 
     const head = document.head;
