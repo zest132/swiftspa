@@ -15,6 +15,13 @@
 
 import { registerBackHandler } from './overlay-coordinator.js';
 
+
+
+const BASE_Z = 20000;
+const DIM_Z = BASE_Z;
+const OVERLAY_BASE_Z = BASE_Z + 1;
+
+
 const stack = [];
 
 let dimEl = null;
@@ -74,7 +81,13 @@ export function mount(el, options = {}) {
     });
 
     stack.push(item);
+
+     const depth = stack.length; // 1부터 시작
+     el.__overlayContext.zIndex = OVERLAY_BASE_Z + depth;
+     el.style.zIndex = el.__overlayContext.zIndex;
+
     overlayRoot.appendChild(el);
+    repositionDim();
     if (lockScroll) {
         lockBodyScroll();
     }
@@ -138,6 +151,7 @@ export function closeTop(reason = 'api') {
  * -------------------------------------------------- */
 function removeTop(reason) {
     const item = stack.pop();
+    repositionDim();
     if (!item) return;
 
 
@@ -164,9 +178,36 @@ function removeTop(reason) {
     }
 
     // scroll 복구
-    if (item.lockScroll && !stack.some(i => i.lockScroll)) {
+    if (stack.length === 0) {
         unlockBodyScroll();
     }
+}
+
+function repositionDim() {
+    if (!dimEl) return;
+
+    const depth = stack.length;
+
+    if (depth === 0) {
+        dimEl.style.display = 'none';
+        return;
+    }
+
+    dimEl.style.display = 'block';
+
+    if (depth === 1) {
+        // 1뎁스: dim은 overlayRoot의 최하단
+        dimEl.style.zIndex = BASE_Z;
+        overlayRoot.insertBefore(dimEl, overlayRoot.firstChild);
+        return;
+    }
+
+    // 2뎁스 이상: top 바로 아래
+    const dimZ = OVERLAY_BASE_Z + depth - 1;
+    dimEl.style.zIndex = dimZ;
+
+    const topEl = stack[depth - 1].el;
+    overlayRoot.insertBefore(dimEl, topEl);
 }
 
 /**
@@ -188,6 +229,7 @@ function ensureOverlayRoot() {
     if (!dimEl) {
         dimEl = document.createElement('div');
         dimEl.className = 'overlay-dim';
+        dimEl.style.zIndex = DIM_Z;
         overlayRoot.appendChild(dimEl);
 
         dimEl.addEventListener('click', () => {
@@ -213,11 +255,9 @@ function lockBodyScroll() {
 }
 
 function unlockBodyScroll() {
-    scrollLockCount = Math.max(0, scrollLockCount - 1);
-    if (scrollLockCount === 0) {
+        scrollLockCount = 0;
         document.documentElement.style.overflow = '';
         document.body.style.overflow = '';
-    }
 }
 
 /* --------------------------------------------------
@@ -230,6 +270,7 @@ export function __debugStack() {
 
 function attachOverlayContext(el) {
     el.__overlayContext = {
+        zIndex: null,
         close(reason = 'ui') {
             // manager가 요청한 close 흐름의 최종 단계인 경우: 실제 제거 수행
             if (el.__overlayCloseRequestedByManager) {
@@ -291,6 +332,10 @@ export function attach(el, options = {}) {
     });
 
     stack.push(item);
+
+       const depth = stack.length;
+    el.__overlayContext.zIndex = OVERLAY_BASE_Z + depth;
+    el.style.zIndex = el.__overlayContext.zIndex;
 
     if (lockScroll) {
         lockBodyScroll();

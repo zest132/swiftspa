@@ -32,6 +32,8 @@ function defaultResolvePageUrl(path) {
 
 let customResolver = null;
 
+
+
 export function configureSpa(options = {}) {
     if (typeof options.resolvePageUrl === "function") {
         customResolver = options.resolvePageUrl;
@@ -58,6 +60,18 @@ function resolvePageUrl(path) {
  */
 function normalizeTagName(tag) {
     return tag.trim().toLowerCase();
+}
+
+
+// ----------------------------------
+// Link Interceptor (App Policy Hook)
+// ----------------------------------
+const linkInterceptors = [];
+
+export function addLinkInterceptor(fn) {
+    if (typeof fn === 'function') {
+        linkInterceptors.push(fn);
+    }
 }
 
 
@@ -212,6 +226,22 @@ async function handleInternalLink(e) {
 
     const href = a.getAttribute('href');
     if (!href) return;
+
+    // ----------------------------------
+    // 0) App-level link interceptors
+    // ----------------------------------
+    for (const interceptor of linkInterceptors) {
+        const handled = interceptor({
+            a,
+            href,
+            event: e
+        });
+
+        if (handled === true) {
+            return; // 앱에서 처리 완료 → SPA 네비게이션 중단
+        }
+    }
+
 
     // -------------------------------
     // ① 해시(#)로 시작하는 내부 앵커 → navigate() 하지 않음
