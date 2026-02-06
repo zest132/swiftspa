@@ -24,7 +24,7 @@ export function setSpaState(key, value) {
  */
 export function subscribeState(key, callback) {
 
-    // 1️ 현재 상태 즉시 전달 (중요)
+    // 1️ 현재 상태 즉시 전달
     if (spaState.data[key] !== undefined) {
         callback(spaState.data[key]);
     }

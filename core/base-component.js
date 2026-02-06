@@ -44,6 +44,12 @@ export class BaseComponent extends HTMLElement {
             options
         );
 
+        /* =========================
+         * 내부 상태 (프레임워크 책임)
+         * ========================= */
+        this.__isReady = false;
+        this.__effects = new Map(); // key -> fn
+
         // Shadow DOM 적용 여부
         if (this.__options.shadow !== false) {
             this.attachShadow({ mode: this.__options.shadow });
@@ -59,7 +65,39 @@ export class BaseComponent extends HTMLElement {
             // refs 자동 수집
             this.collectRefs();
             this.onReady?.(shadow);
+
+            // ready 상태 확정
+            this.__isReady = true;
+
+            // 등록된 effect 전부 실행
+            for (const fn of this.__effects.values()) {
+                fn();
+            }
+
+
+            // 외부 구독용 ready 이벤트
+            this.dispatchEvent(
+                new CustomEvent('ready', {
+                    bubbles: true,
+                    composed: true,   // Shadow DOM 경계 통과
+                    detail: { shadow }
+                })
+            );
         });
+    }
+
+    /**
+     * DOM 이후 실행 로직 등록
+     * @param {string} key - effect 식별자 (중복 방지)
+     * @param {Function} fn - 실행 함수
+     */
+    _effect(key, fn) {
+        this.__effects.set(key, fn);
+
+        // 이미 ready라면 즉시 실행
+        if (this.__isReady) {
+            fn();
+        }
     }
 
     /**

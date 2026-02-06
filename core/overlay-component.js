@@ -7,7 +7,7 @@ export default class OverlayComponent extends SwiftSPA.BaseComponent {
      * ===================== */
 
     open(options) {
-        this._openInternal(options);
+        return this._openInternal(options);
     }
 
     _openInternal(openOptions = {}) {
@@ -28,6 +28,8 @@ export default class OverlayComponent extends SwiftSPA.BaseComponent {
                 overlayEl.onAfterOpen?.(openOptions);
             });
         });
+
+        return overlayEl;
     }
 
     /**
