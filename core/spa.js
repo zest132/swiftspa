@@ -174,8 +174,12 @@ export async function navigate(path, preloadedHtml = null) {
         // -----------------------------
         const jsPath = tplUrl.replace(/index\.html$/, "index.js");
 
+        
         try {
-            const mod = await import(jsPath);
+            const mod = await import(
+                /* @vite-ignore */
+                jsPath
+            );
             if (typeof mod.init === "function") {
                 mod.init();
             }

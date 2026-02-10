@@ -38,7 +38,11 @@ async function defineComponent(tagName) {
         const baseDir = `/components/${tagName}/`;
         const jsPath = `${baseDir}index.js`;
 
-        const mod = await import(jsPath);
+         
+        const mod = await import(
+           /* @vite-ignore */
+            jsPath
+        );
         const Ctor = mod?.default;
 
         if (typeof Ctor !== 'function') {
