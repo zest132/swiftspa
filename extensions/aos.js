@@ -5,12 +5,17 @@ import { waitForImages } from "../core/utils.js";
  * - spa:afterRender 시점에서 이미지 로드 후 AOS 초기화
  */
 export function enableAosExtension(options = {}) {
+    const {
+        preserveScrollOnInitialRender = import.meta.env.DEV,
+        ...aosOptions
+    } = options;
 
     const config = {
         duration: 800,
         once: false,
-        ...options
+        ...aosOptions
     };
+    let isInitialRender = true;
 
     function applyAosOffsets() {
         const winWidth = window.innerWidth;
@@ -41,7 +46,9 @@ export function enableAosExtension(options = {}) {
 
         await waitForImages(document);
 
-        window.scrollTo(0, 0);
+        if (!(preserveScrollOnInitialRender && isInitialRender)) {
+            window.scrollTo(0, 0);
+        }
 
         applyAosOffsets();
 
@@ -55,5 +62,7 @@ export function enableAosExtension(options = {}) {
         } else {
             AOS.refreshHard();
         }
+
+        isInitialRender = false;
     });
 }

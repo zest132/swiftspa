@@ -31,6 +31,54 @@ function defaultResolvePageUrl(path) {
 }
 
 let customResolver = null;
+const RELOAD_SCROLL_KEY = 'swiftspa:reload-scroll-y';
+
+function isReloadNavigation() {
+    const navEntries = performance.getEntriesByType?.('navigation');
+    const navEntry = navEntries?.[0];
+    if (navEntry?.type) {
+        return navEntry.type === 'reload';
+    }
+
+    if (performance.navigation) {
+        return performance.navigation.type === performance.navigation.TYPE_RELOAD;
+    }
+
+    return false;
+}
+
+function persistReloadScrollPosition() {
+    try {
+        sessionStorage.setItem(RELOAD_SCROLL_KEY, String(window.scrollY));
+    } catch {
+        // ignore storage errors
+    }
+}
+
+function consumeReloadScrollPosition() {
+    try {
+        const raw = sessionStorage.getItem(RELOAD_SCROLL_KEY);
+        sessionStorage.removeItem(RELOAD_SCROLL_KEY);
+
+        if (raw == null) return null;
+        const y = Number(raw);
+        return Number.isFinite(y) ? Math.max(0, y) : null;
+    } catch {
+        return null;
+    }
+}
+
+function restoreScrollPosition(targetY, attempts = 0) {
+    const maxScrollY = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const clampedY = Math.max(0, Math.min(targetY, maxScrollY));
+
+    window.scrollTo(0, clampedY);
+
+    if (attempts >= 20) return;
+    if (Math.abs(window.scrollY - clampedY) <= 2) return;
+
+    requestAnimationFrame(() => restoreScrollPosition(targetY, attempts + 1));
+}
 
 
 
@@ -312,6 +360,22 @@ export function injectGlobalStyles() {
 export function startSpa() {
 
     console.log("startSpa() called.");
+
+    if (import.meta.env.DEV) {
+        window.addEventListener('pagehide', persistReloadScrollPosition, { capture: true });
+        window.addEventListener('beforeunload', persistReloadScrollPosition, { capture: true });
+
+        if (isReloadNavigation()) {
+            const savedScrollY = consumeReloadScrollPosition();
+            if (savedScrollY != null) {
+                window.addEventListener('spa:afterRender', () => {
+                    restoreScrollPosition(savedScrollY);
+                }, { once: true });
+            }
+        } else {
+            consumeReloadScrollPosition();
+        }
+    }
 
     //현재 페이지를 히스토리 기준점으로 고정
     history.replaceState({ page: true }, '', location.pathname + location.search);
