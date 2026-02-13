@@ -1,12 +1,17 @@
 import { waitForImages } from "../core/utils.js";
 
+function isDevEnvironment() {
+    const viteEnv = import.meta.env;
+    return Boolean(viteEnv && viteEnv.DEV);
+}
+
 /**
  * SwiftSPA AOS Extension
  * - spa:afterRender 시점에서 이미지 로드 후 AOS 초기화
  */
 export function enableAosExtension(options = {}) {
     const {
-        preserveScrollOnInitialRender = import.meta.env.DEV,
+        preserveScrollOnInitialRender = isDevEnvironment(),
         ...aosOptions
     } = options;
 

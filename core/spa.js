@@ -33,6 +33,11 @@ function defaultResolvePageUrl(path) {
 let customResolver = null;
 const RELOAD_SCROLL_KEY = 'swiftspa:reload-scroll-y';
 
+function isDevEnvironment() {
+    const viteEnv = import.meta.env;
+    return Boolean(viteEnv && viteEnv.DEV);
+}
+
 function isReloadNavigation() {
     const navEntries = performance.getEntriesByType?.('navigation');
     const navEntry = navEntries?.[0];
@@ -361,7 +366,7 @@ export function startSpa() {
 
     console.log("startSpa() called.");
 
-    if (import.meta.env.DEV) {
+    if (isDevEnvironment()) {
         window.addEventListener('pagehide', persistReloadScrollPosition, { capture: true });
         window.addEventListener('beforeunload', persistReloadScrollPosition, { capture: true });
 
